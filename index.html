@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moriarty — منصة بوتات واتساب</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script src="config.js"></script>
+<script src="api.js"></script>
+<style>
+/* ===================== VARIABLES ===================== */
+:root {
+  --bg: #050908;
+  --bg2: #080e0a;
+  --surface: #0c1510;
+  --card: #0f1c13;
+  --card2: #121f16;
+  --border: #162b1c;
+  --border2: #1d3826;
+  --green: #00e676;
+  --green2: #00c853;
+  --green3: #69f0ae;
+  --glow: rgba(0,230,118,0.18);
+  --glow2: rgba(0,230,118,0.07);
+  --glow3: rgba(0,230,118,0.04);
+  --text: #eaf5ec;
+  --text2: #a5d6a7;
+  --text3: #5a8060;
+  --red: #ff4444;
+  --red-bg: rgba(255,68,68,0.1);
+  --yellow: #ffd740;
+  --blue: #40c4ff;
+  --purple: #b39ddb;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Cairo', sans-serif;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+/* ===================== RESET ===================== */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===================== GRID BG ===================== */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0,230,118,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,230,118,0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.glow-orb {
+  position: fixed; border-radius: 50%;
+  filter: blur(100px); pointer-events: none; z-index: 0;
+}
+.g1 { width:500px;height:500px; background:rgba(0,230,118,0.07); top:-150px; right:-100px; }
+.g2 { width:350px;height:350px; background:rgba(0,200,83,0.04); bottom:150px; left:-80px; }
+.g3 { width:250px;height:250px; background:rgba(0,150,60,0.05); top:50%; right:30%; }
+
+/* ===================== SCROLLBAR ===================== */
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--green2); }
+
+/* ===================== LAYOUT ===================== */
+#app { position: relative; z-index: 1; min-height: 100vh; }
+
+/* ===================== AUTH PAGES ===================== */
+.auth-page {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 44px 40px;
+  width: 100%; max-width: 440px;
+  box-shadow: var(--shadow);
+  animation: fadeSlideUp 0.5s ease;
+}
+@keyframes fadeSlideUp {
+  from { opacity:0; transform:translateY(24px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.auth-logo { text-align: center; margin-bottom: 36px; }
+.auth-logo-icon {
+  width: 64px; height: 64px;
+  background: var(--green);
+  border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px; margin: 0 auto 16px;
+  box-shadow: 0 0 40px rgba(0,230,118,0.5);
+}
+.auth-logo h1 { font-size: 28px; font-weight: 900; letter-spacing: -1px; }
+.auth-logo p  { font-size: 13px; color: var(--text3); margin-top: 4px; font-family: var(--mono); }
+.auth-tabs { display: flex; gap: 4px; background: var(--card); border-radius: var(--radius-sm); padding: 4px; margin-bottom: 28px; }
+.auth-tab {
+  flex: 1; padding: 9px; text-align: center; border-radius: 6px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: all 0.2s; color: var(--text3);
+}
+.auth-tab.active { background: var(--green); color: #000; }
+
+/* ===================== FORM ===================== */
+.form-group { margin-bottom: 16px; }
+.form-label { font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 7px; display: flex; align-items: center; gap: 6px; }
+.form-input {
+  width: 100%; padding: 12px 14px;
+  background: var(--card); border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-size: 14px; font-family: var(--sans); outline: none;
+  transition: all 0.2s;
+}
+.form-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(0,230,118,0.12); }
+.form-input::placeholder { color: var(--text3); }
+select.form-input { cursor: pointer; }
+select.form-input option { background: var(--card); }
+
+/* ===================== BUTTONS ===================== */
+.btn {
+  padding: 11px 20px; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  border: none; font-family: var(--sans);
+  transition: all 0.2s; display: inline-flex;
+  align-items: center; justify-content: center; gap: 7px;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary {
+  background: var(--green); color: #000;
+  box-shadow: 0 0 20px rgba(0,230,118,0.35);
+  width: 100%;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--green3);
+  box-shadow: 0 0 30px rgba(0,230,118,0.55);
+  transform: translateY(-1px);
+}
+.btn-ghost {
+  background: transparent; color: var(--text2);
+  border: 1px solid var(--border2);
+}
+.btn-ghost:hover { border-color: var(--green); color: var(--green); background: var(--glow3); }
+.btn-danger {
+  background: var(--red-bg); color: var(--red);
+  border: 1px solid rgba(255,68,68,0.25);
+}
+.btn-danger:hover { background: rgba(255,68,68,0.2); }
+.btn-sm { padding: 7px 14px; font-size: 12px; border-radius: 7px; }
+.btn-icon { padding: 8px; border-radius: 8px; width: 36px; height: 36px; }
+
+/* ===================== DASHBOARD LAYOUT ===================== */
+.dashboard {
+  display: flex; min-height: 100vh;
+}
+
+/* ===================== SIDEBAR ===================== */
+.sidebar {
+  width: 256px; flex-shrink: 0;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 100;
+  transition: transform 0.3s ease;
+}
+.sb-brand {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 11px;
+}
+.sb-brand-icon {
+  width: 40px; height: 40px;
+  background: var(--green); border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+  box-shadow: 0 0 20px rgba(0,230,118,0.4);
+}
+.sb-brand-name { font-size: 18px; font-weight: 900; letter-spacing: -0.5px; }
+.sb-brand-ver  { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 1px; }
+
+.sb-nav { flex: 1; padding: 14px 10px; overflow-y: auto; }
+.sb-section { margin-bottom: 22px; }
+.sb-section-label {
+  font-size: 9px; font-weight: 800; letter-spacing: 2px;
+  color: var(--text3); padding: 0 10px; margin-bottom: 6px;
+  font-family: var(--mono); text-transform: uppercase;
+}
+.sb-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: var(--radius-sm);
+  cursor: pointer; transition: all 0.18s;
+  color: var(--text3); font-size: 14px;
+  margin-bottom: 1px; border: 1px solid transparent;
+  position: relative;
+}
+.sb-item:hover { background: var(--glow2); color: var(--text); }
+.sb-item.active {
+  background: var(--glow); color: var(--green);
+  border-color: rgba(0,230,118,0.2);
+}
+.sb-item.active::before {
+  content: '';
+  position: absolute; right: 0; top: 25%; bottom: 25%;
+  width: 3px; background: var(--green);
+  border-radius: 2px 0 0 2px;
+}
+.sb-item-icon { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+.sb-item-badge {
+  margin-right: auto;
+  background: var(--green); color: #000;
+  font-size: 10px; font-weight: 800;
+  padding: 2px 7px; border-radius: 20px;
+  font-family: var(--mono);
+}
+.sb-item-badge.red { background: var(--red); color: #fff; }
+
+.sb-divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+.sb-footer {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+}
+.sb-user {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: var(--radius-sm);
+  cursor: pointer; transition: background 0.2s;
+}
+.sb-user:hover { background: var(--glow2); }
+.sb-user-av {
+  width: 34px; height: 34px;
+  background: linear-gradient(135deg, var(--green), var(--green2));
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; color: #000; flex-shrink: 0;
+}
+.sb-user-name { font-size: 13px; font-weight: 700; line-height: 1.2; }
+.sb-user-role { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.sb-logout {
+  margin-top: 8px; width: 100%; padding: 8px;
+  background: transparent; border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); color: var(--text3);
+  font-size: 12px; cursor: pointer; font-family: var(--sans);
+  transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.sb-logout:hover { border-color: var(--red); color: var(--red); background: var(--red-bg); }
+
+/* ===================== MAIN AREA ===================== */
+.main-area {
+  margin-right: 256px; flex: 1;
+  display: flex; flex-direction: column; min-height: 100vh;
+}
+
+/* ===================== TOPBAR ===================== */
+.topbar {
+  padding: 16px 28px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(5,9,8,0.85);
+  backdrop-filter: blur(12px);
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.topbar-left h2 { font-size: 20px; font-weight: 800; }
+.topbar-left p  { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-top: 2px; }
+.topbar-right { display: flex; gap: 10px; align-items: center; }
+
+/* ===================== PAGE CONTENT ===================== */
+.page { padding: 28px; flex: 1; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+.page.hidden { display: none; }
+
+/* ===================== STATS ROW ===================== */
+.stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 26px; }
+.stat-c {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px; position: relative; overflow: hidden;
+  cursor: default; transition: all 0.3s;
+}
+.stat-c:hover { border-color: rgba(0,230,118,0.3); transform: translateY(-2px); box-shadow: 0 10px 35px rgba(0,0,0,0.4); }
+.stat-c::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--green), transparent);
+  opacity: 0; transition: opacity 0.3s;
+}
+.stat-c:hover::after { opacity: 1; }
+.stat-c-icon { font-size: 26px; margin-bottom: 10px; display: block; }
+.stat-c-val { font-size: 34px; font-weight: 900; font-family: var(--mono); line-height: 1; color: var(--green); }
+.stat-c-lbl { font-size: 12px; color: var(--text3); margin-top: 5px; }
+.stat-c-sub { font-size: 11px; margin-top: 8px; font-family: var(--mono); color: var(--text3); }
+.stat-c-sub.up { color: var(--green); }
+
+/* ===================== SECTION HEADER ===================== */
+.sec-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.sec-title {
+  font-size: 16px; font-weight: 800;
+  display: flex; align-items: center; gap: 10px;
+}
+.sec-title::before {
+  content: ''; width: 4px; height: 20px;
+  background: var(--green); border-radius: 2px;
+  display: inline-block;
+}
+
+/* ===================== SERVER CARDS ===================== */
+.servers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 16px; }
+.server-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px;
+  cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden;
+}
+.server-card:hover {
+  border-color: rgba(0,230,118,0.35);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+}
+.server-card-glow {
+  position: absolute; top: 0; right: 0;
+  width: 100px; height: 100px;
+  background: var(--green);
+  border-radius: 50%; filter: blur(50px);
+  opacity: 0.04; pointer-events: none;
+  transition: opacity 0.3s;
+}
+.server-card:hover .server-card-glow { opacity: 0.1; }
+.sc-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+.sc-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  background: var(--glow); border: 1px solid rgba(0,230,118,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px; flex-shrink: 0;
+}
+.sc-menu { position: relative; }
+.sc-dots { background: transparent; border: 1px solid var(--border2); color: var(--text3); padding: 5px 9px; border-radius: 7px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+.sc-dots:hover { border-color: var(--green); color: var(--green); }
+.sc-name { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+.sc-desc { font-size: 12px; color: var(--text3); line-height: 1.5; }
+.sc-stats { display: flex; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.sc-stat { flex: 1; text-align: center; }
+.sc-stat-v { font-size: 18px; font-weight: 800; font-family: var(--mono); color: var(--text); }
+.sc-stat-l { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.sc-status { display: flex; align-items: center; gap: 6px; font-size: 11px; font-family: var(--mono); }
+.dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.dot.red   { background: var(--red); }
+.dot.pulse { animation: pulseAnim 2s infinite; }
+@keyframes pulseAnim { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+/* Create server card */
+.server-card-new {
+  background: transparent;
+  border: 2px dashed var(--border2);
+  border-radius: var(--radius);
+  min-height: 200px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  cursor: pointer; transition: all 0.3s;
+  color: var(--text3);
+}
+.server-card-new:hover { border-color: var(--green); color: var(--green); background: var(--glow3); }
+.server-card-new span { font-size: 32px; }
+.server-card-new p { font-size: 14px; font-weight: 600; }
+
+/* ===================== BOT CARDS ===================== */
+.bots-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap: 14px; }
+.bot-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px; transition: all 0.3s;
+}
+.bot-card:hover { border-color: rgba(0,230,118,0.3); box-shadow: 0 8px 28px rgba(0,0,0,0.4); }
+.bot-card.running { border-color: rgba(0,230,118,0.2); }
+.bot-card.stopped { border-color: rgba(255,68,68,0.15); }
+.bc-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.bc-av {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.bc-av.g { background:rgba(0,230,118,0.12); border:1px solid rgba(0,230,118,0.25); }
+.bc-av.r { background:rgba(255,68,68,0.08); border:1px solid rgba(255,68,68,0.2); }
+.bc-av.y { background:rgba(255,215,64,0.08); border:1px solid rgba(255,215,64,0.2); }
+.sbadge { font-size:10px; font-weight:700; padding:3px 9px; border-radius:20px; font-family:var(--mono); display:flex; align-items:center; gap:4px; }
+.sbadge.run { background:rgba(0,230,118,0.12); color:var(--green); border:1px solid rgba(0,230,118,0.25); }
+.sbadge.stp { background:rgba(255,68,68,0.08); color:var(--red); border:1px solid rgba(255,68,68,0.2); }
+.sbadge.qr  { background:rgba(255,215,64,0.08); color:var(--yellow); border:1px solid rgba(255,215,64,0.2); }
+.bc-name { font-size: 15px; font-weight: 800; margin-bottom: 3px; }
+.bc-num  { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+.bc-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.bc-stat { background: rgba(255,255,255,0.025); border-radius: 8px; padding: 10px; }
+.bc-stat-v { font-size: 17px; font-weight: 800; font-family: var(--mono); }
+.bc-stat-l { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.bc-actions { display: flex; gap: 7px; }
+.bc-btn {
+  flex: 1; padding: 8px 6px; border-radius: 8px; font-size: 12px; font-weight: 700;
+  cursor: pointer; border: none; font-family: var(--sans); transition: all 0.2s;
+}
+.bc-btn.start { background:rgba(0,230,118,0.12); color:var(--green); border:1px solid rgba(0,230,118,0.25); }
+.bc-btn.start:hover { background:rgba(0,230,118,0.22); }
+.bc-btn.stop  { background:rgba(255,68,68,0.08); color:var(--red); border:1px solid rgba(255,68,68,0.2); }
+.bc-btn.stop:hover { background:rgba(255,68,68,0.18); }
+.bc-btn.log   { background:rgba(255,255,255,0.04); color:var(--text2); border:1px solid var(--border2); }
+.bc-btn.log:hover { border-color:var(--blue); color:var(--blue); }
+.bc-del { flex:0; padding:8px; border-radius:8px; background:rgba(255,68,68,0.05); color:var(--red); border:1px solid rgba(255,68,68,0.15); cursor:pointer; font-size:13px; transition:all 0.2s; }
+.bc-del:hover { background:rgba(255,68,68,0.15); }
+
+/* ===================== BOTTOM PANELS ===================== */
+.panels-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 24px; }
+.panel {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+}
+.panel-hdr {
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.panel-title { font-size: 13px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulseAnim 1.5s infinite; flex-shrink: 0; }
+.log-wrap { padding: 12px; height: 270px; overflow-y: auto; font-family: var(--mono); font-size: 11px; }
+.log-line { display: flex; gap: 8px; padding: 3px 0; line-height: 1.7; }
+.log-t { color: var(--text3); flex-shrink: 0; }
+.log-tag { flex-shrink:0; padding:1px 6px; border-radius:4px; font-size:10px; font-weight:700; }
+.log-tag.info    { background:rgba(64,196,255,0.12); color:var(--blue); }
+.log-tag.success { background:rgba(0,230,118,0.12); color:var(--green); }
+.log-tag.warn    { background:rgba(255,215,64,0.12); color:var(--yellow); }
+.log-tag.error   { background:rgba(255,68,68,0.12); color:var(--red); }
+.log-msg { color: var(--text2); flex: 1; }
+
+/* ===================== MODAL ===================== */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(6px);
+  z-index: 200;
+  display: none; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.overlay.open { display: flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  padding: 30px; width: 100%; max-width: 480px;
+  animation: fadeSlideUp 0.3s ease;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.modal-title { font-size: 20px; font-weight: 800; }
+.modal-x {
+  background: transparent; border: 1px solid var(--border2);
+  color: var(--text3); width: 34px; height: 34px;
+  border-radius: 8px; cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.modal-x:hover { border-color: var(--red); color: var(--red); }
+
+/* QR */
+.qr-wrap { background: white; border-radius: 14px; padding: 16px; width: 220px; height: 220px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+.qr-img { width: 100%; height: 100%; object-fit: contain; }
+.qr-scan-line { position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--green); animation: scanAnim 2s linear infinite; box-shadow: 0 0 12px var(--green); }
+@keyframes scanAnim { from{top:0;} to{top:100%;} }
+.qr-placeholder { font-size: 100px; opacity: 0.1; color: #000; }
+
+/* ===================== EMPTY STATE ===================== */
+.empty-state {
+  text-align: center; padding: 60px 20px; color: var(--text3);
+}
+.empty-state .es-icon { font-size: 52px; margin-bottom: 16px; opacity: 0.5; }
+.empty-state h3 { font-size: 18px; font-weight: 700; color: var(--text2); margin-bottom: 8px; }
+.empty-state p { font-size: 13px; line-height: 1.7; max-width: 300px; margin: 0 auto 20px; }
+
+/* ===================== ALERT ===================== */
+.alert { padding: 11px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.alert.error { background: var(--red-bg); border: 1px solid rgba(255,68,68,0.3); color: var(--red); }
+.alert.success { background: rgba(0,230,118,0.08); border: 1px solid rgba(0,230,118,0.25); color: var(--green); }
+
+/* ===================== TOAST ===================== */
+.toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--card2); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 12px 22px;
+  font-size: 13px; font-weight: 700; z-index: 500;
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.s { border-color: rgba(0,230,118,0.4); color: var(--green); }
+.toast.e { border-color: rgba(255,68,68,0.4); color: var(--red); }
+
+/* ===================== LOADING ===================== */
+.spinner {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid var(--border2);
+  border-top-color: var(--green);
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+@keyframes spin { to{transform:rotate(360deg);} }
+.loading-page { display:flex; align-items:center; justify-content:center; min-height:200px; flex-direction:column; gap:16px; color:var(--text3); font-size:13px; }
+
+/* ===================== BREADCRUMB ===================== */
+.breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text3); margin-bottom: 20px; }
+.breadcrumb span { cursor: pointer; transition: color 0.2s; }
+.breadcrumb span:hover { color: var(--green); }
+.breadcrumb .sep { color: var(--border2); }
+.breadcrumb .cur { color: var(--text); font-weight: 600; }
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width: 1100px) { .stats-row { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 800px)  {
+  .sidebar { transform: translateX(100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main-area { margin-right: 0; }
+  .panels-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="glow-orb g1"></div>
+<div class="glow-orb g2"></div>
+<div class="glow-orb g3"></div>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<!-- MODALS -->
+<div class="overlay" id="modal-add-server">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">🖥️ إنشاء سيرفر جديد</div>
+      <button class="modal-x" onclick="closeModal('modal-add-server')">✕</button>
+    </div>
+    <div id="add-server-alert"></div>
+    <div class="form-group"><label class="form-label">🏷️ اسم السيرفر</label><input class="form-input" id="srv-name" placeholder="مثال: سيرفر المتجر"></div>
+    <div class="form-group"><label class="form-label">📝 الوصف (اختياري)</label><input class="form-input" id="srv-desc" placeholder="وصف قصير للسيرفر"></div>
+    <div class="form-group">
+      <label class="form-label">🎨 أيقونة</label>
+      <select class="form-input" id="srv-icon">
+        <option value="🖥️">🖥️ سيرفر</option><option value="💼">💼 أعمال</option>
+        <option value="🛒">🛒 متجر</option><option value="🎓">🎓 تعليم</option>
+        <option value="🏦">🏦 مالية</option><option value="🎮">🎮 ترفيه</option>
+        <option value="🏥">🏥 صحة</option><option value="📦">📦 توصيل</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn btn-primary" id="srv-submit-btn" onclick="submitAddServer()">إنشاء السيرفر</button>
+      <button class="btn btn-ghost" style="width:auto;padding:11px 20px;" onclick="closeModal('modal-add-server')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-add-bot">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">🤖 إضافة بوت جديد</div>
+      <button class="modal-x" onclick="closeModal('modal-add-bot')">✕</button>
+    </div>
+    <div id="add-bot-alert"></div>
+    <div class="form-group"><label class="form-label">🏷️ اسم البوت</label><input class="form-input" id="bot-name" placeholder="مثال: بوت خدمة العملاء"></div>
+    <div class="form-group"><label class="form-label">📝 الوصف</label><input class="form-input" id="bot-desc" placeholder="ماذا يفعل هذا البوت؟"></div>
+    <div class="form-group">
+      <label class="form-label">🎨 أيقونة</label>
+      <select class="form-input" id="bot-icon">
+        <option value="🤖">🤖 روبوت</option><option value="💼">💼 أعمال</option>
+        <option value="🛒">🛒 تسوق</option><option value="📢">📢 إشعارات</option>
+        <option value="🎓">🎓 تعليم</option><option value="💊">💊 صحة</option>
+        <option value="🏦">🏦 مالية</option><option value="📦">📦 توصيل</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn btn-primary" id="bot-submit-btn" onclick="submitAddBot()">إضافة البوت</button>
+      <button class="btn btn-ghost" style="width:auto;padding:11px 20px;" onclick="closeModal('modal-add-bot')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-qr">
+  <div class="modal" style="text-align:center;max-width:380px;">
+    <div class="modal-hdr">
+      <div class="modal-title">📱 ربط واتساب</div>
+      <button class="modal-x" onclick="closeModal('modal-qr')">✕</button>
+    </div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:22px;line-height:1.7;">
+      افتح واتساب على هاتفك<br>
+      ← الأجهزة المرتبطة ← ربط جهاز ← امسح الكود
+    </p>
+    <div class="qr-wrap">
+      <div class="qr-scan-line"></div>
+      <img id="qr-img" src="" alt="QR" class="qr-img" style="display:none;">
+      <div id="qr-loading" class="qr-placeholder">▩</div>
+    </div>
+    <p id="qr-status" style="font-size:12px;color:var(--text3);font-family:var(--mono);">في انتظار الـ QR Code...</p>
+    <div style="margin-top:20px;">
+      <button class="btn btn-ghost" style="width:100%;" onclick="closeModal('modal-qr')">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+const State = {
+  user: null, token: null,
+  servers: [], bots: [], currentServer: null,
+  logs: [], socket: null, currentBotId: null,
+  page: 'home', authMode: 'login'
+};
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  const token = localStorage.getItem('moriarty_token');
+  const user  = JSON.parse(localStorage.getItem('moriarty_user') || 'null');
+  if (token && user) {
+    State.token = token; State.user = user;
+    API.setToken(token);
+    renderDashboard();
+    await loadServers();
+  } else {
+    renderAuth('login');
+  }
+}
+
+// ============================================================
+// ROUTING
+// ============================================================
+function navigate(page, extra={}) {
+  State.page = page;
+  if (extra.server) State.currentServer = extra.server;
+  renderContent();
+  document.querySelectorAll('.sb-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === page);
+  });
+}
+
+// ============================================================
+// AUTH
+// ============================================================
+function renderAuth(mode='login') {
+  State.authMode = mode;
+  document.getElementById('app').innerHTML = `
+    <div class="auth-page">
+      <div class="auth-card">
+        <div class="auth-logo">
+          <div class="auth-logo-icon">🤖</div>
+          <h1>Moriarty</h1>
+          <p>WhatsApp Bot Platform</p>
+        </div>
+        <div class="auth-tabs">
+          <div class="auth-tab ${mode==='login'?'active':''}" onclick="renderAuth('login')">تسجيل الدخول</div>
+          <div class="auth-tab ${mode==='register'?'active':''}" onclick="renderAuth('register')">حساب جديد</div>
+        </div>
+        <div id="auth-alert"></div>
+        ${mode==='register'?`<div class="form-group"><label class="form-label">اسم المستخدم</label><input class="form-input" id="a-username" placeholder="username"></div>`:''}
+        <div class="form-group"><label class="form-label">البريد الإلكتروني</label><input class="form-input" id="a-email" type="email" placeholder="you@example.com"></div>
+        <div class="form-group"><label class="form-label">كلمة المرور</label><input class="form-input" id="a-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')submitAuth()"></div>
+        <button class="btn btn-primary" id="auth-btn" onclick="submitAuth()">${mode==='login'?'🔐 دخول':'✨ إنشاء الحساب'}</button>
+      </div>
+    </div>`;
+}
+
+async function submitAuth() {
+  const btn = document.getElementById('auth-btn');
+  const alert = document.getElementById('auth-alert');
+  btn.disabled = true; btn.textContent = '...';
+  alert.innerHTML = '';
+  try {
+    let data;
+    if (State.authMode === 'login') {
+      const email = document.getElementById('a-email').value.trim();
+      const pass  = document.getElementById('a-pass').value;
+      data = await API.login(email, pass);
+    } else {
+      const username = document.getElementById('a-username').value.trim();
+      const email    = document.getElementById('a-email').value.trim();
+      const pass     = document.getElementById('a-pass').value;
+      data = await API.register(username, email, pass);
+    }
+    State.token = data.token; State.user = data.user;
+    API.setToken(data.token); API.setUser(data.user);
+    renderDashboard();
+    await loadServers();
+  } catch (e) {
+    alert.innerHTML = `<div class="alert error">⚠️ ${e.message}</div>`;
+    btn.disabled = false; btn.textContent = State.authMode==='login'?'🔐 دخول':'✨ إنشاء الحساب';
+  }
+}
+
+function logout() {
+  if (State.socket) State.socket.disconnect();
+  API.clearToken(); State.user=null; State.token=null;
+  State.servers=[]; State.bots=[];
+  renderAuth('login');
+}
+
+// ============================================================
+// DASHBOARD SHELL
+// ============================================================
+function renderDashboard() {
+  const u = State.user;
+  document.getElementById('app').innerHTML = `
+    <div class="dashboard">
+      <aside class="sidebar" id="sidebar">
+        <div class="sb-brand">
+          <div class="sb-brand-icon">🤖</div>
+          <div>
+            <div class="sb-brand-name">Moriarty</div>
+            <div class="sb-brand-ver">v1.0.0 • Baileys</div>
+          </div>
+        </div>
+        <nav class="sb-nav">
+          <div class="sb-section">
+            <div class="sb-section-label">الرئيسية</div>
+            <div class="sb-item active" data-page="home" onclick="navigate('home')">
+              <span class="sb-item-icon">🏠</span> الرئيسية
+            </div>
+            <div class="sb-item" data-page="bots" onclick="navigate('bots')">
+              <span class="sb-item-icon">🤖</span> بوتاتي
+              <span class="sb-item-badge" id="sb-bots-count">0</span>
+            </div>
+          </div>
+          <div class="sb-section">
+            <div class="sb-section-label">السيرفرات</div>
+            <div class="sb-item" data-page="servers" onclick="navigate('servers')">
+              <span class="sb-item-icon">🖥️</span> سيرفراتي
+              <span class="sb-item-badge" id="sb-srv-count">0</span>
+            </div>
+            <div class="sb-item" data-page="create-server" onclick="openModal('modal-add-server')">
+              <span class="sb-item-icon">➕</span> إنشاء سيرفر
+            </div>
+          </div>
+          <div class="sb-section">
+            <div class="sb-section-label">الحساب</div>
+            <div class="sb-item" data-page="settings" onclick="navigate('settings')">
+              <span class="sb-item-icon">⚙️</span> الإعدادات
+            </div>
+          </div>
+        </nav>
+        <div class="sb-footer">
+          <div class="sb-user">
+            <div class="sb-user-av">${(u.username||'م')[0].toUpperCase()}</div>
+            <div>
+              <div class="sb-user-name">${u.username}</div>
+              <div class="sb-user-role">${u.role}</div>
+            </div>
+          </div>
+          <button class="sb-logout" onclick="logout()">🚪 تسجيل الخروج</button>
+        </div>
+      </aside>
+      <div class="main-area">
+        <div class="topbar">
+          <div class="topbar-left">
+            <h2 id="page-title">الرئيسية</h2>
+            <p id="page-sub">مرحباً بك في Moriarty 👋</p>
+          </div>
+          <div class="topbar-right" id="topbar-actions">
+            <button class="btn btn-ghost btn-sm" id="clock-el">--:--:--</button>
+            <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-server')">+ سيرفر جديد</button>
+          </div>
+        </div>
+        <div id="page-content"></div>
+      </div>
+    </div>`;
+  startClock();
+  connectSocket();
+  navigate('home');
+}
+
+// ============================================================
+// CLOCK
+// ============================================================
+function startClock() {
+  const el = document.getElementById('clock-el');
+  if (!el) return;
+  const tick = () => { if(el) el.textContent = new Date().toLocaleTimeString('ar-SA'); };
+  tick(); setInterval(tick, 1000);
+}
+
+// ============================================================
+// RENDER CONTENT
+// ============================================================
+function renderContent() {
+  const titles = { home:'الرئيسية', servers:'سيرفراتي', bots:'بوتاتي', 'server-detail':'تفاصيل السيرفر', settings:'الإعدادات' };
+  document.getElementById('page-title').textContent = titles[State.page] || State.page;
+  switch(State.page) {
+    case 'home': renderHome(); break;
+    case 'servers': renderServers(); break;
+    case 'server-detail': renderServerDetail(); break;
+    case 'bots': renderBots(); break;
+    case 'settings': renderSettings(); break;
+  }
+}
+
+// ============================================================
+// HOME PAGE
+// ============================================================
+function renderHome() {
+  document.getElementById('page-sub').textContent = 'مرحباً، ' + State.user.username + ' 👋';
+  const srvCount  = State.servers.length;
+  const running   = State.bots.filter(b=>b.status==='running').length;
+  const totalBots = State.bots.length;
+  const totalMsgs = State.bots.reduce((s,b)=>s+(b.stats?.todayMessages||0),0);
+
+  document.getElementById('page-content').innerHTML = `
+    <div class="page">
+      <div class="stats-row">
+        <div class="stat-c">
+          <span class="stat-c-icon">🖥️</span>
+          <div class="stat-c-val" id="st-srv">${srvCount}</div>
+          <div class="stat-c-lbl">السيرفرات</div>
+          <div class="stat-c-sub up">● ${srvCount} سيرفر نشط</div>
+        </div>
+        <div class="stat-c">
+          <span class="stat-c-icon">🤖</span>
+          <div class="stat-c-val">${totalBots}</div>
+          <div class="stat-c-lbl">إجمالي البوتات</div>
+          <div class="stat-c-sub">${running} يعمل الآن</div>
+        </div>
+        <div class="stat-c">
+          <span class="stat-c-icon">🟢</span>
+          <div class="stat-c-val" style="color:var(--green)">${running}</div>
+          <div class="stat-c-lbl">بوتات نشطة</div>
+          <div class="stat-c-sub up">● نشط</div>
+        </div>
+        <div class="stat-c">
+          <span class="stat-c-icon">💬</span>
+          <div class="stat-c-val" style="color:var(--blue)">${totalMsgs.toLocaleString()}</div>
+          <div class="stat-c-lbl">رسائل اليوم</div>
+          <div class="stat-c-sub up">↑ اليوم</div>
+        </div>
+      </div>
+      <div class="sec-hdr">
+        <div class="sec-title">سيرفراتي</div>
+        <button class="btn btn-ghost btn-sm" onclick="navigate('servers')">عرض الكل</button>
+      </div>
+      <div class="servers-grid" id="home-servers">
+        ${renderServerCards(State.servers.slice(0,3))}
+        <div class="server-card-new" onclick="openModal('modal-add-server')"><span>➕</span><p>إنشاء سيرفر جديد</p></div>
+      </div>
+      <div class="panels-row">
+        <div class="panel">
+          <div class="panel-hdr"><div class="panel-title"><span class="live-dot"></span> سجل النظام</div><button class="btn btn-ghost btn-sm" onclick="clearLogs()">مسح</button></div>
+          <div class="log-wrap" id="log-wrap"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-hdr"><div class="panel-title">🤖 أسرع البوتات</div></div>
+          <div class="log-wrap" id="top-bots-wrap">
+            ${State.bots.length === 0
+              ? '<div class="empty-state" style="padding:30px"><div class="es-icon">🤖</div><p>لا توجد بوتات بعد</p></div>'
+              : State.bots.slice(0,5).map(b=>`
+                <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+                  <div style="font-size:22px">${b.icon}</div>
+                  <div style="flex:1">
+                    <div style="font-size:13px;font-weight:700">${b.name}</div>
+                    <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${b.phoneNumber||'غير مربوط'}</div>
+                  </div>
+                  <div class="sbadge ${b.status==='running'?'run':b.status==='qr_pending'?'qr':'stp'}">
+                    <span class="dot ${b.status==='running'?'green pulse':'red'}"></span>
+                    ${b.status==='running'?'يعمل':b.status==='qr_pending'?'QR':'متوقف'}
+                  </div>
+                </div>`).join('')
+            }
+          </div>
+        </div>
+      </div>
+    </div>`;
+  renderLogLines();
+}
+
+// ============================================================
+// SERVERS PAGE
+// ============================================================
+function renderServers() {
+  document.getElementById('page-sub').textContent = `${State.servers.length} سيرفر`;
+  document.getElementById('page-content').innerHTML = `
+    <div class="page">
+      <div class="sec-hdr">
+        <div class="sec-title">جميع السيرفرات</div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('modal-add-server')">+ إنشاء سيرفر</button>
+      </div>
+      <div class="servers-grid">
+        ${renderServerCards(State.servers)}
+        <div class="server-card-new" onclick="openModal('modal-add-server')"><span>➕</span><p>إنشاء سيرفر جديد</p></div>
+      </div>
+    </div>`;
+}
+
+function renderServerCards(servers) {
+  if (!servers.length) return '';
+  return servers.map(s => `
+    <div class="server-card" onclick="openServerDetail('${s._id}')">
+      <div class="server-card-glow"></div>
+      <div class="sc-top">
+        <div class="sc-icon">${s.icon||'🖥️'}</div>
+        <button class="sc-dots" onclick="event.stopPropagation();deleteServer('${s._id}','${s.name}')">🗑</button>
+      </div>
+      <div class="sc-name">${s.name}</div>
+      <div class="sc-desc">${s.description||'لا يوجد وصف'}</div>
+      <div class="sc-stats">
+        <div class="sc-stat"><div class="sc-stat-v">${s.botCount||0}</div><div class="sc-stat-l">بوتات</div></div>
+        <div class="sc-stat"><div class="sc-stat-v">${s.runningBots||0}</div><div class="sc-stat-l">نشط</div></div>
+        <div class="sc-stat" style="text-align:right">
+          <div class="sc-status">
+            <span class="dot ${s.status==='active'?'green pulse':'red'}"></span>
+            ${s.status==='active'?'نشط':'معطل'}
+          </div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ============================================================
+// SERVER DETAIL
+// ============================================================
+async function openServerDetail(serverId) {
+  const server = State.servers.find(s=>s._id===serverId);
+  if (!server) return;
+  State.currentServer = server;
+  navigate('server-detail');
+}
+
+async function renderServerDetail() {
+  const s = State.currentServer;
+  if (!s) { navigate('servers'); return; }
+  document.getElementById('page-sub').textContent = s.name;
+
+  // load bots for this server
+  document.getElementById('page-content').innerHTML = `<div class="page"><div class="loading-page"><div class="spinner"></div>جاري التحميل...</div></div>`;
+  try {
+    const bots = await API.getBots(s._id);
+    State.bots = [...State.bots.filter(b=>b.server!==s._id), ...bots];
+    updateSidebarCounts();
+    renderServerDetailContent(s, bots);
+  } catch(e) { toast('❌ ' + e.message, 'e'); }
+}
+
+function renderServerDetailContent(s, bots) {
+  document.getElementById('page-content').innerHTML = `
+    <div class="page">
+      <div class="breadcrumb">
+        <span onclick="navigate('servers')">السيرفرات</span>
+        <span class="sep">›</span>
+        <span class="cur">${s.name}</span>
+      </div>
+      <div class="sec-hdr">
+        <div class="sec-title">${s.icon} ${s.name}</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddBotModal()">+ إضافة بوت</button>
+      </div>
+      <div class="bots-grid" id="bots-grid">
+        ${renderBotCards(bots)}
+      </div>
+      ${bots.length===0?`
+        <div class="empty-state">
+          <div class="es-icon">🤖</div>
+          <h3>لا يوجد بوتات</h3>
+          <p>أضف أول بوت لهذا السيرفر وابدأ التشغيل</p>
+          <button class="btn btn-primary" style="width:auto;padding:11px 24px;" onclick="openAddBotModal()">+ إضافة بوت</button>
+        </div>`:''}
+    </div>`;
+}
+
+// ============================================================
+// BOTS PAGE
+// ============================================================
+async function renderBots() {
+  document.getElementById('page-sub').textContent = 'جميع بوتاتي عبر السيرفرات';
+  document.getElementById('page-content').innerHTML = `<div class="page"><div class="loading-page"><div class="spinner"></div>جاري التحميل...</div></div>`;
+  try {
+    const bots = await API.getMyBots();
+    State.bots = bots;
+    updateSidebarCounts();
+    document.getElementById('page-content').innerHTML = `
+      <div class="page">
+        <div class="sec-hdr"><div class="sec-title">جميع البوتات</div></div>
+        ${bots.length===0
+          ? `<div class="empty-state"><div class="es-icon">🤖</div><h3>لا يوجد بوتات</h3><p>اذهب لسيرفر وأضف بوتاً</p><button class="btn btn-primary" style="width:auto;padding:11px 24px;" onclick="navigate('servers')">السيرفرات</button></div>`
+          : `<div class="bots-grid">${renderBotCards(bots, true)}</div>`
+        }
+      </div>`;
+  } catch(e) { toast('❌ ' + e.message, 'e'); }
+}
+
+function renderBotCards(bots, showServer=false) {
+  return bots.map(b => {
+    const avClass = b.status==='running'?'g':b.status==='qr_pending'?'y':'r';
+    const bdgClass = b.status==='running'?'run':b.status==='qr_pending'?'qr':'stp';
+    const bdgLabel = b.status==='running'?'يعمل':b.status==='qr_pending'?'QR':'متوقف';
+    return `
+    <div class="bot-card ${b.status}" id="bc-${b._id}">
+      <div class="bc-top">
+        <div class="bc-av ${avClass}">${b.icon}</div>
+        <div class="sbadge ${bdgClass}">
+          <span class="dot ${b.status==='running'?'green pulse':'red'}"></span>
+          ${bdgLabel}
+        </div>
+      </div>
+      <div class="bc-name">${b.name}</div>
+      <div class="bc-num">${b.phoneNumber||'غير مربوط'}${showServer&&b.server?` • ${b.server.name||''}`:''}</div>
+      <div class="bc-stats">
+        <div class="bc-stat"><div class="bc-stat-v">${(b.stats?.todayMessages||0).toLocaleString()}</div><div class="bc-stat-l">رسائل اليوم</div></div>
+        <div class="bc-stat"><div class="bc-stat-v">${(b.stats?.totalMessages||0).toLocaleString()}</div><div class="bc-stat-l">إجمالي</div></div>
+      </div>
+      <div class="bc-actions">
+        ${b.status==='running'
+          ?`<button class="bc-btn stop" onclick="stopBot('${b._id}')">⏹ إيقاف</button>`
+          :b.status==='qr_pending'
+          ?`<button class="bc-btn log" onclick="showQRModal('${b._id}')">📱 QR</button>`
+          :`<button class="bc-btn start" onclick="startBot('${b._id}')">▶ تشغيل</button>`
+        }
+        <button class="bc-btn log" onclick="watchBotLogs('${b._id}')">📋 سجل</button>
+        <button class="bc-del" onclick="deleteBotAction('${b._id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// SETTINGS PAGE
+// ============================================================
+function renderSettings() {
+  document.getElementById('page-sub').textContent = 'إعدادات الحساب';
+  const u = State.user;
+  document.getElementById('page-content').innerHTML = `
+    <div class="page" style="max-width:520px;">
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-hdr"><div class="panel-title">👤 معلومات الحساب</div></div>
+        <div style="padding:20px;">
+          <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+            <div style="width:60px;height:60px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#000;">${(u.username||'م')[0].toUpperCase()}</div>
+            <div>
+              <div style="font-size:18px;font-weight:800;">${u.username}</div>
+              <div style="font-size:12px;color:var(--text3);font-family:var(--mono);">${u.email}</div>
+              <div style="font-size:11px;color:var(--green);margin-top:4px;">● ${u.role}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hdr"><div class="panel-title">🔗 Backend API</div></div>
+        <div style="padding:20px;">
+          <div class="form-group">
+            <label class="form-label">رابط الـ Backend</label>
+            <input class="form-input" value="${CONFIG.BACKEND_URL}" readonly style="font-family:var(--mono);font-size:12px;">
+          </div>
+          <p style="font-size:12px;color:var(--text3);line-height:1.7;">
+            عدّل ملف <code style="background:var(--card);padding:2px 6px;border-radius:4px;">config.js</code> لتغيير رابط الـ Backend
+          </p>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ============================================================
+// DATA LOADING
+// ============================================================
+async function loadServers() {
+  try {
+    const servers = await API.getServers();
+    State.servers = servers;
+    const bots = await API.getMyBots();
+    State.bots = bots;
+    updateSidebarCounts();
+    if (State.page === 'home') renderHome();
+    if (State.page === 'servers') renderServers();
+  } catch(e) { toast('⚠️ ' + e.message, 'e'); }
+}
+
+function updateSidebarCounts() {
+  const sc = document.getElementById('sb-srv-count');
+  const bc = document.getElementById('sb-bots-count');
+  if (sc) sc.textContent = State.servers.length;
+  if (bc) bc.textContent = State.bots.length;
+}
+
+// ============================================================
+// SERVER ACTIONS
+// ============================================================
+async function submitAddServer() {
+  const btn = document.getElementById('srv-submit-btn');
+  const alertEl = document.getElementById('add-server-alert');
+  const name = document.getElementById('srv-name').value.trim();
+  const desc = document.getElementById('srv-desc').value.trim();
+  const icon = document.getElementById('srv-icon').value;
+  if (!name) { alertEl.innerHTML = '<div class="alert error">⚠️ اسم السيرفر مطلوب</div>'; return; }
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const srv = await API.createServer({ name, description: desc, icon });
+    State.servers.push({ ...srv, botCount: 0, runningBots: 0 });
+    updateSidebarCounts();
+    closeModal('modal-add-server');
+    toast('✅ تم إنشاء السيرفر!', 's');
+    document.getElementById('srv-name').value = '';
+    document.getElementById('srv-desc').value = '';
+    if (State.page === 'servers' || State.page === 'home') renderContent();
+  } catch(e) { alertEl.innerHTML = `<div class="alert error">⚠️ ${e.message}</div>`; }
+  btn.disabled = false; btn.textContent = 'إنشاء السيرفر';
+}
+
+async function deleteServer(id, name) {
+  if (!confirm(`حذف سيرفر "${name}" وجميع بوتاته؟`)) return;
+  try {
+    await API.deleteServer(id);
+    State.servers = State.servers.filter(s => s._id !== id);
+    State.bots = State.bots.filter(b => b.server !== id);
+    updateSidebarCounts();
+    toast('🗑 تم حذف السيرفر', 'e');
+    if (State.page === 'server-detail') navigate('servers');
+    else renderContent();
+  } catch(e) { toast('❌ ' + e.message, 'e'); }
+}
+
+// ============================================================
+// BOT ACTIONS
+// ============================================================
+function openAddBotModal() { openModal('modal-add-bot'); }
+
+async function submitAddBot() {
+  const btn = document.getElementById('bot-submit-btn');
+  const alertEl = document.getElementById('add-bot-alert');
+  const name = document.getElementById('bot-name').value.trim();
+  const desc = document.getElementById('bot-desc').value.trim();
+  const icon = document.getElementById('bot-icon').value;
+  const serverId = State.currentServer?._id;
+  if (!name) { alertEl.innerHTML = '<div class="alert error">⚠️ اسم البوت مطلوب</div>'; return; }
+  if (!serverId) { alertEl.innerHTML = '<div class="alert error">⚠️ يرجى فتح سيرفر أولاً</div>'; return; }
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const bot = await API.createBot({ name, description: desc, icon, serverId });
+    State.bots.push(bot);
+    updateSidebarCounts();
+    closeModal('modal-add-bot');
+    toast('✅ تمت إضافة البوت!', 's');
+    document.getElementById('bot-name').value = '';
+    document.getElementById('bot-desc').value = '';
+    if (State.page === 'server-detail') renderServerDetailContent(State.currentServer, State.bots.filter(b=>b.server===serverId));
+  } catch(e) { alertEl.innerHTML = `<div class="alert error">⚠️ ${e.message}</div>`; }
+  btn.disabled = false; btn.textContent = 'إضافة البوت';
+}
+
+async function startBot(botId) {
+  const btn = document.querySelector(`#bc-${botId} .bc-btn.start`);
+  if (btn) { btn.disabled=true; btn.textContent='...'; }
+  try {
+    await API.startBot(botId);
+    const bot = State.bots.find(b=>b._id===botId);
+    if (bot) bot.status = 'qr_pending';
+    toast('📱 انتظر QR Code', 's');
+    showQRModal(botId);
+    updateBotCard(botId);
+  } catch(e) { toast('❌ ' + e.message, 'e'); }
+  if (btn) { btn.disabled=false; }
+}
+
+async function stopBot(botId) {
+  try {
+    await API.stopBot(botId);
+    const bot = State.bots.find(b=>b._id===botId);
+    if (bot) { bot.status='stopped'; bot.phoneNumber=''; }
+    updateBotCard(botId);
+    toast('⏹ تم الإيقاف', 'e');
+  } catch(e) { toast('❌ ' + e.message, 'e'); }
+}
+
+async function deleteBotAction(botId) {
+  const bot = State.bots.find(b=>b._id===botId);
+  if (!confirm(`حذف "${bot?.name}"؟`)) return;
+  try {
+    await API.deleteBot(botId);
+    State.bots = State.bots.filter(b=>b._id!==botId);
+    updateSidebarCounts();
+    const card = document.getElementById('bc-'+botId);
+    if (card) card.remove();
+    toast('🗑 تم الحذف', 'e');
+  } catch(e) { toast('❌ ' + e.message, 'e'); }
+}
+
+function updateBotCard(botId) {
+  const grid = document.getElementById('bots-grid');
+  if (!grid) return;
+  const bots = State.currentServer
+    ? State.bots.filter(b=>b.server===State.currentServer._id)
+    : State.bots;
+  grid.innerHTML = renderBotCards(bots, State.page==='bots');
+}
+
+// ============================================================
+// QR MODAL
+// ============================================================
+function showQRModal(botId) {
+  State.currentBotId = botId;
+  document.getElementById('qr-img').style.display = 'none';
+  document.getElementById('qr-loading').style.display = 'block';
+  document.getElementById('qr-status').textContent = 'في انتظار الـ QR Code...';
+  openModal('modal-qr');
+  if (State.socket) State.socket.emit('join:bot', botId);
+}
+
+function watchBotLogs(botId) {
+  State.currentBotId = botId;
+  if (State.socket) State.socket.emit('join:bot', botId);
+  toast('📋 جاري متابعة سجل البوت', 's');
+}
+
+// ============================================================
+// SOCKET
+// ============================================================
+function connectSocket() {
+  if (!State.token) return;
+  try {
+    State.socket = io(CONFIG.BACKEND_URL, { auth: { token: State.token } });
+    State.socket.on('connect', () => addLog('success', 'Socket', 'اتصال مباشر نشط'));
+    State.socket.on('disconnect', () => addLog('warn', 'Socket', 'انقطع الاتصال'));
+
+    State.socket.on('bot:qr', ({ qr }) => {
+      const img = document.getElementById('qr-img');
+      const ld  = document.getElementById('qr-loading');
+      if (img && qr) { img.src=qr; img.style.display='block'; if(ld) ld.style.display='none'; }
+      document.getElementById('qr-status').textContent = 'جاهز — امسح الكود الآن!';
+      addLog('info', 'Bot', 'QR Code جاهز');
+    });
+
+    State.socket.on('bot:connected', ({ phone }) => {
+      const bot = State.bots.find(b=>b._id===State.currentBotId);
+      if (bot) { bot.status='running'; bot.phoneNumber=phone; updateBotCard(bot._id); }
+      closeModal('modal-qr');
+      toast('✅ البوت متصل — ' + phone, 's');
+      addLog('success', 'Bot', 'تم الاتصال: ' + phone);
+    });
+
+    State.socket.on('bot:disconnected', () => {
+      const bot = State.bots.find(b=>b._id===State.currentBotId);
+      if (bot) { bot.status='stopped'; updateBotCard(bot._id); }
+      addLog('error', 'Bot', 'انقطع الاتصال');
+    });
+
+    State.socket.on('bot:log', ({ type, message }) => {
+      addLog(type, 'Bot', message);
+    });
+
+    State.socket.on('bot:message', ({ from, text }) => {
+      addLog('info', from?.split('@')[0]||'مجهول', text?.slice(0,60));
+      const bot = State.bots.find(b=>b._id===State.currentBotId);
+      if (bot) { bot.stats = bot.stats||{}; bot.stats.todayMessages=(bot.stats.todayMessages||0)+1; }
+    });
+  } catch(e) { addLog('error','Socket','فشل الاتصال المباشر'); }
+}
+
+// ============================================================
+// LOGS
+// ============================================================
+function addLog(type, src, msg) {
+  const t = new Date().toTimeString().slice(0,8);
+  State.logs.unshift({ type, src, msg, t });
+  if (State.logs.length > 80) State.logs.pop();
+  renderLogLines();
+}
+function renderLogLines() {
+  const w = document.getElementById('log-wrap');
+  if (!w) return;
+  w.innerHTML = State.logs.slice(0,30).map(l=>`
+    <div class="log-line">
+      <span class="log-t">${l.t}</span>
+      <span class="log-tag ${l.type}">${l.type.toUpperCase()}</span>
+      <span class="log-msg"><b>${l.src}</b> — ${l.msg}</span>
+    </div>`).join('') || '<span style="color:var(--text3);font-size:12px;">لا توجد سجلات</span>';
+}
+function clearLogs() { State.logs=[]; renderLogLines(); toast('🗑 تم مسح السجل','s'); }
+
+// ============================================================
+// MODALS
+// ============================================================
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('overlay')) {
+    e.target.classList.remove('open');
+  }
+});
+
+// ============================================================
+// TOAST
+// ============================================================
+function toast(msg, type='s') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(()=>{ t.className=`toast ${type}`; }, 3000);
+}
+
+// ============================================================
+// AUTO DEMO LOGS (when no backend)
+// ============================================================
+const demoLogs = [
+  ['success','النظام','المنصة تعمل بنجاح'],
+  ['info','Baileys','في انتظار تشغيل البوتات'],
+  ['info','النظام','تحقق من ملف config.js'],
+];
+let demoI = 0;
+function demoLogTick() {
+  if (State.logs.length < 3) {
+    const l = demoLogs[demoI++ % demoLogs.length];
+    addLog(...l);
+  }
+}
+setTimeout(()=>{ demoLogs.forEach((l,i)=>setTimeout(()=>addLog(...l), i*600)); }, 500);
+
+// ============================================================
+// BOOT
+// ============================================================
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
